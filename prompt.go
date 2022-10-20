@@ -1,20 +1,38 @@
+/*
+
+Prompt is a very simple prompt decorator taylor made to meet my preferences.
+
+At the moment it only shows the current Git branch.
+
+*/
+
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
+	"path"
 	"strings"
 )
 
+// gitinfo writes the git branch to the provided writer.
 func gitinfo(w io.Writer) {
-	if _, err := os.Stat("./.git"); errors.Is(err, fs.ErrNotExist) {
+	wd, err := os.Getwd()
+	if err != nil {
 		return
 	}
 
-	head, err := os.Open("./.git/HEAD")
+	hasGit := func(p string) bool {
+		// ya, i know.
+		return func() error { _, err := os.Stat(path.Join(p, ".git")); return err }() == nil
+	}
+
+	var cur string
+	for cur = path.Clean(wd); !hasGit(cur) && cur != "/"; cur = path.Dir(cur) {
+	}
+
+	head, err := os.Open(path.Join(cur, "./.git/HEAD"))
 	if err != nil {
 		return
 	}
@@ -22,7 +40,6 @@ func gitinfo(w io.Writer) {
 
 	var ref string
 	matches, err := fmt.Fscanf(head, "ref: %s", &ref)
-
 	if err != nil || matches != 1 {
 		return
 	}
@@ -37,5 +54,6 @@ func main() {
 	if prompt.Len() == 0 {
 		return
 	}
+
 	fmt.Printf("%s - ", &prompt)
 }
